@@ -1,0 +1,119 @@
+- hosts: all,localhost
+  gather_facts: false
+  vars:
+    software_version: 4.20.7m
+  # ansible_net_image is a fact gathered from EOS_FACT
+    ansible_net_image: 4.20.7m
+    output1: 'Global Aging Time: 1200'
+    loopback_ip: 1.1.1.1/32
+  # ansible_net_interface is a dictionary gathered from EOS_FACT
+    ansible_net_interfaces:
+      Management1:
+        description: ''
+        macaddress: 0c:1b:e8:fa:cf:00
+        mtu: 1500
+        bandwidth: 1000000000
+        duplex: duplexFull
+        lineprotocol: up
+        operstatus: connected
+        type: routed
+        ipv4:
+          address: 192.168.10.3
+          masklen: 24
+    output2: |
+      Last table change time : 51 days, 10:27:22 ago
+      Number of table inserts : 5
+      Number of table deletes : 4
+      Number of table drops : 0
+      Number of table age-outs : 0
+      Port Neighbor Device ID Neighbor Port ID TTL
+      Ma1 rsgbdu38-mac00-9396.apac.nsroot. Eth101/1/32 120
+    output3_value: 'IGMP snooping : Enabled'
+    output3: |
+      Global IGMP Snooping configuration:
+      -------------------------------------------
+      IGMP snooping : Disabled
+      IGMPv2 immediate leave : Enabled
+      Robustness variable : 2
+      Report flooding : Disabled
+      Vlan 1 :
+      ----------
+      GMPv2 immediate leave : Default
+      Multicast router learning mode : pim-dvmrp
+      IGMP max group limit : No limit set
+      Recent attempt to exceed limit : No
+      Report flooding : Disabled
+      IGMP snooping pruning active : False
+      Flooding traffic to VLAN : True
+      IGMP snooping proxy active : False
+    output4: |
+       Maximum number of vrfs allowed: 1023
+       Vrf RD Protocols State Interfaces
+       ---------- --------- --------------- -------------------- -----------
+       mgmt 1:1 ipv4,ipv6 v4:no routing, Management1
+       v6:no routing
+    ipaddress: 192.168.10.3
+    net_mask: 24  
+    output5: |
+      Loopback0 is up, line protocol is up (connected)
+      Hardware is Loopback
+      Internet address is 1.1.1.1/32
+      Broadcast address is 255.255.255.255
+      IP MTU 65535 bytes
+      Up 1 year, 54 days, 1 hour, 1 minute, 24 seconds
+    output6: |
+      VRF: default
+      Codes: C - connected, S - static, K - kernel,
+      O - OSPF, IA - OSPF inter area, E1 - OSPF external type 1,
+      E2 - OSPF external type 2, N1 - OSPF NSSA external type 1,
+      N2 - OSPF NSSA external type2, B I - iBGP, B E - eBGP,
+      R - RIP, I L1 - IS-IS level 1, I L2 - IS-IS level 2,
+      O3 - OSPFv3, A B - BGP Aggregate, A O - OSPF Summary,
+      NG - Nexthop Group Static Route, V - VXLAN Control Service,
+      DH - DHCP client installed default route, M - Martian
+      Gateway of last resort is not set
+      C 1.1.1.1/32 is directly connect
+      ! IP routing not enabled
+
+
+  tasks:
+  - name: show version
+    assert:
+      that: ansible_net_image == software_version
+      msg:  device version, ansible_net_image does not match citi standard image software_version
+
+  - name: show lldp neighbors
+    assert: 
+      that: output2.split('\n')[6] == "Ma1 rsgbdu38-mac00-9396.apac.nsroot. Eth101/1/32 120"  
+
+  - name: show mac address-table aging-time
+    assert:
+      that: ("1200" in output1)
+
+  - name: show spanning-tree
+    assert:
+      that: ("disabled" in "Spanning-tree has been disabled in the configuration.")
+
+  - name: show ip igmp snooping
+    assert:
+      that: output3_value not in output3.split('\n')
+
+  - name: show int loopback 0
+    assert:
+      that: ("1.1.1.1/32" in output5) 
+
+  - name: show ip route
+    assert:
+      that: ("! IP routing not enabled" in output6)
+
+  - name: show vrf
+    assert:
+      that: ("mgmt" and "Management1" and "v4:no routing" and "v6:no routing") in output4 
+
+  # Need to check INT facts to verify 'vrf forwarding mgmt'
+  - name: show run int Management1. Here, we use the facts gathered by EOS_FACTS
+    assert:
+      that: |
+        ansible_net_interfaces.Management1.ipv4.address == ipaddress and
+        ansible_net_interfaces.Management1.ipv4.masklen == net_mask and
+        ansible_net_interfaces.Management1.operstatus == 'connected' 

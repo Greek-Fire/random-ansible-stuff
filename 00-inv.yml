@@ -1,0 +1,54 @@
+#!/bin/python
+import json
+
+test = {"myrouter":{"mgtIp":"1.0.0.1","deviceName":"myrouter","platform":"nxos","region":"aspac","business":"NA-MAJOR-DC","connectionType":"ssh"}}
+
+import os
+try:
+   import requests
+except ImportError:
+    print("Please install the python-requests module.")
+    sys.exit(-1)
+
+SOT_API_URL = os.environ.get("SOT_API_URL")
+SSL_VERIFY = os.environ.get("SSL_VERIFY") or False
+
+### Local Test vars
+#SSL_VERIFY = False 
+#SOT_API_URL = 'http://test.example.com
+#SOT_API_URL = 'http:/test.example.com
+#SOT_API_URL = test
+
+SSL_VERIFY=False
+
+def get_json(url):
+  # performs a GET using the passed URL location
+  r = requests.get(url, verify=SSL_VERIFY)
+  return r.json()
+
+def remove_nested_dict(inv_dict):
+  #restructure from {"1":{"AA": "BB","A1",B2"}} to {"hostname:" "1","AA":"BB","A1":"B2"}
+  inv_list = []
+  temp_dict = {}
+  for v in inv_dict.values():
+    temp_dict = v
+    temp_dict = { k:v for k, v in v.items() if v is not None}
+    temp_dict = {k.lower():v.lower() for k,v in temp_dict.items()}
+    inv_list.append(temp_dict)
+  return inv_list
+
+def create_inv(url):
+  inv_dict = get_json(url)
+  jsonn = remove_nested_dict(inv_dict)
+  inv_data = {"all":{"hosts":[]},"_meta":{"hostvars":{}}}
+  for k in jsonn: 
+    k['ansible_network_os'] = k['platform']
+    k['ansible_host'] = k['mgtip']
+    hostname = k['devicename']
+    inv_data['_meta']['hostvars'][hostname] = k
+    inv_data['all']['hosts'].append(hostname)
+  return inv_data
+
+
+inv = create_inv(SOT_API_URL)
+print(json.dumps(inv, indent=4))

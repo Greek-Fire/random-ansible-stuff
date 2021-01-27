@@ -1,0 +1,30 @@
+---
+# tasks file for snmp-link 
+
+- block:
+  - name: gather interface facts
+    nxos_facts:
+      gather_subset: interfaces
+    register: ints
+  
+  - set_fact:
+      int_list: |
+        {% set temp_list = [] %}
+        {% set temp_dict = {} %}
+        {% for k,v in ints.ansible_facts.ansible_net_interfaces.items() %}
+        {% set temp_dict = v %}
+        "{{ temp_dict.update({'int_name': k}) }}"
+        "{{ test_list.append(temp_dict) }}"
+        {% endfor %}
+        "{{ temp_list | selectattr('mode','defined') | selectattr('mode','match','fex-fabric') | map(attribute='int_name') | list }}"
+
+#  - name: "running {{ REMED }} on {{ devicename }}"
+#    nxos_confgi:
+#      lines: snmp trap link-status
+#      parents: "interface {{ item }}"
+#      save_when: modified
+#      match: line
+#      replace: line
+#    with_items: "{{ int_list }}"
+#  when: (ansible_network_os == 'nxos')
+

@@ -1,0 +1,20 @@
+---
+plugin: constructed
+strict: no
+cache: true
+groups:
+   sti:            "'systematic trading infrastructure' in business" 
+   
+keyed_groups:
+   
+- key:          "region"
+  separator:    ""
+  prefix:       ""
+   
+- key:          "platform"
+  separator:    ""
+  prefix:       ""
+  
+- key:          "connectiontype"
+  separator:    ""
+  prefix:       ""

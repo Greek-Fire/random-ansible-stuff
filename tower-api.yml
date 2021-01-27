@@ -1,0 +1,46 @@
+---
+# tasks file for wrapper
+- set_fact:
+    EXT_VAR1:  "REMED:            {{ item.REMED_RESULTS.remediationCommands | regex_replace('^[^#]*#start') | regex_replace('#end\\r\\n.*') | regex_findall('\\n(.*?)\\r') | to_json }}"
+    EXT_VAR2:  "REGION:           {{ REGION | default('omit') }}"
+    #EXT_VAR3:  "HPNA_REMED_RUN:  {{ 'True' if not ( 'banner motd' in item.REMED_RESULTS.remediationCommands or 'banner login' in item.REMED_RESULTS.remediationCommands) else 'False' }}"
+    EXT_VAR3:  "NO_MOTD_BANN:     True"
+    EXT_VAR4:  "TEL_REMED:        {{ item.REMED_RESULTS.remediationCommands |  regex_replace('^[^#]*#start', '\\nterminal length 0\\r\\nconfig term\\r') | regex_replace('#end', 'exit') | regex_replace('(exit\\r\\n).*', '\\g<1>') | regex_findall('\\n(.*?)\\r') | to_json }}"
+    EXT_VAR5:  "SNMP_LINK:        {{ 'True' if ('snmp trap link-status' in (item.REMED_RESULTS.remediationCommands | lower)) else 'False' }}"
+    TARGETS:   "{{ item.TARGET | json_query('*.deviceName') | flatten }}"
+    #TARGETS:   "{{ item.TARGET }}"
+  when: ('banner' not in item.REMED_RESULTS.remediationCommands)
+  
+- set_fact:
+    EXT_VAR1:  "REMED:            {{ item.REMED_RESULTS.remediationCommands | to_json }}"
+    EXT_VAR2:  "REGION:           {{ REGION | default('omit') }}"
+    #EXT_VAR3:  "HPNA_REMED_RUN:  {{ 'True' if not ( 'banner motd' in item.REMED_RESULTS.remediationCommands or 'banner login' in item.REMED_RESULTS.remediationCommands) else 'False' }}"
+    EXT_VAR3:  "NO_MOTD_BANN:     False"
+    EXT_VAR4:  "TEL_REMED:        {{ item.REMED_RESULTS.remediationCommands | to_json }}"
+    EXT_VAR5:  "SNMP_LINK:        {{ 'True' if ('snmp trap link-status' in (item.REMED_RESULTS.remediationCommands | lower)) else 'False' }}"
+    TARGETS:   "{{ item.TARGET | json_query('*.deviceName') | flatten }}"
+    #TARGETS:   "{{ item.TARGET }}"
+  when: ('banner' in item.REMED_RESULTS.remediationCommands)
+
+- set_fact:
+    EXT_VARS:  "{{ (result_id.json.results | first)['extra_vars'] + '\n' + EXT_VAR1 + '\n' + EXT_VAR2 + '\n' + EXT_VAR3 + '\n' + EXT_VAR4 + '\n' + EXT_VAR5 }}"
+
+# inject vars and launch remediation playbook
+- name: run the remediation playbook
+  uri:
+    url:              "{{ TOWER_URL }}{{ TOWER_API_EP }}{{ TEMP_ID }}/launch/"
+    method:           POST
+    validate_certs:   False
+    force_basic_auth: True
+    body_format:      json
+    user:             "{{ TOWER_USERNAME }}"
+    password:         "{{ TOWER_PASSWORD }}"
+    status_code:      201
+    body:
+      limit:          "{{ TARGETS |join(',')| default(omit) }}"
+      job_tags:       "{{ TOWER_JOB_TAGS    | default(omit) }}"
+      skip_tags:      "{{ TOWER_SKIP_TAGS   | default(omit) }}"
+      verbosity:      "{{ TOWER_VERBOSITY   | default(omit) }}"
+      credentials:    "{{ NETWORK_CRED_ID   | default(CRED_ID) }}"
+      extra_vars:     "{{ EXT_VARS }}"
+      

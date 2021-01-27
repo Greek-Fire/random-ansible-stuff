@@ -1,0 +1,17 @@
+---
+# tasks file for telnet_remed
+- name: telnetting
+  telnet:
+    user:            "{{ TELNET_USERNAME }}"
+    password:        "{{ TELNET_PASSWORD }}"
+    login_prompt:    "Username:"
+    password_prompt: "Password:"
+    timeout:         120
+    prompts:
+    - "[>#]"
+    command:
+    - terminal length 0
+    - conf t
+    - "{{ REMED | regex_replace('#start') | regex_replace('#end') | regex_replace('\\r') }}"
+    - exit
+  when: (ansible_network_os == 'ios')
